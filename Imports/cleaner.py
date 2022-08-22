@@ -29,11 +29,11 @@ class Cleaner:
         _new_year : int
             index of 'sty' month in list months
         errors : List[List[List[int]]]
+            UNDER DEVELOPMENT
             indicies of the cells in which errors occured
             first dimension defines month
             second dimension defines column
             third dimension contains indicies of the cells
-            UNDER DEVELOPMENT
 
         Methods
         -------

@@ -133,9 +133,10 @@ class Analyser:
             return pd.read_excel(f'{path_to_folder}Sheets/Clean/clean_{month}.xlsx', index_col=0)
         except Exception as e:
             print(e)
-            
+        
+        return None
 
-    def _engines_working_corectly(self) -> None:
+    def _engines_working_corectly(self) -> np.ndarray:
         condition1 = np.logical_and(self.df[self.headers["first_engine"]] > self.min_power_chp, self.df[self.headers["second_engine"]] == 0)
         condition2 = np.logical_and(self.df[self.headers["second_engine"]] > self.min_power_chp, self.df[self.headers["first_engine"]] == 0)
         condition3 = np.logical_and(self.df[self.headers["first_engine"]] > self.min_power_chp, self.df[self.headers["second_engine"]] > self.min_power_chp)
