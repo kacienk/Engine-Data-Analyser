@@ -13,7 +13,7 @@ Data file to clean and anylyse must be a Microsoft Excel file and should look li
 | Time | 1 | 2 | 3 | ... |
 |------|---|---|---|-----|
 
-Where `Time` column contains timestamps and the rest of the columns contain collected data. You should specify what data given column contains when constructing `Analyser` instance.
+Where `Time` column contains timestamps and the rest of the columns contain collected data. Currently only one minute difference between timestamps is supported. You should specify what data given column contains when constructing `Analyser` instance.
 
 There is an example of `Engine Data Analyser` usage presented in `main.py` file.
 
