@@ -1,5 +1,5 @@
 # Engine Data Analyser
-The `Engine Data Analyser` project is created to automate the processes of cleaning and analysing data acquiered from SCADA monitorizing cogeneration plants. It is written in Python using Numpy and Pandas libraries. One of the biggest challenges faced during the development process was the variety of data representation. In the future the goal is to create a way to consolidate data into bigger periods of time (hours instead of minutes) and develop a system that is going to rename columns.
+The `Engine Data Analyser` project is created to automate the processes of cleaning and analysing data acquiered from SCADA monitoring cogeneration plants. It is written in Python using Numpy and Pandas libraries. One of the biggest challenges faced during the development process was the variety of data representation. In the future the goal is to create a way to consolidate data into bigger periods of time (hours instead of minutes) and develop a system that is going to rename columns.
 
 ## Getting started
 To run `Engine Data Analyser` you will need:
