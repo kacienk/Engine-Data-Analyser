@@ -1,8 +1,12 @@
 from cmath import nan
 from copy import deepcopy
+from itertools import repeat
 from typing import List, Dict
 import json
+import time
+from multiprocessing import Pool
 import pandas as pd
+import os
 
 
 class Cleaner:
@@ -55,7 +59,7 @@ class Cleaner:
     path: str
     year: int
     months: List[str]
-    months_converted: List[str]
+    months_converted: Dict[str, str]
     _new_year: int
     errors: List[List[List[int]]]
 
@@ -64,7 +68,7 @@ class Cleaner:
         self.months = months
         self.months_converted = Cleaner._convert_months(months)
         self.year = year
-        self._new_year = self.months_converted.index('sty')
+        self._new_year = self.months.index(self.return_key_of_value(self.months_converted, 'sty'))
         self.path = path
         self.errors = []
 
@@ -73,15 +77,24 @@ class Cleaner:
 
 
     @classmethod
-    def _convert_months(cls, months: List[str]) -> List[str]:
-        result_months = []
+    def _convert_months(cls, months: List[str]) -> dict[str, str]:
+        result_months: dict[str, str] = {}
 
-        with open("Imports/months.json") as json_file:
+        with open("./Imports/months.json") as json_file:
             data = json.load(json_file)
             for month in months:
-                result_months.append(data[month])
+                result_months[month] = data[month]
         
         return result_months
+
+
+    @staticmethod
+    def return_key_of_value(dict_, value):
+        if value in dict_.values():
+            reverse_dict = {dvalue: key for key, dvalue in dict_.items()}
+            return reverse_dict[value]
+        
+        return None
 
 
     def _isnumber(self, x) -> bool:
@@ -113,34 +126,58 @@ class Cleaner:
                         df.loc[index, column] = nan
                         self.errors[month_index][column].append(index)
 
-            df.to_excel(f'{path_to_output_folder}Sheets/Clean/clean_{self.months_converted[month_index]}.xlsx')
+            df.to_excel(f'{path_to_output_folder}Sheets/Clean/clean_{self.months_converted[month]}.xlsx')
             
         return len(df.columns)
 
+    def _temp_clean_data(self, month: str, path_to_output_folder: str) -> int:
+        start = time.perf_counter()
+        if self.months.index(month) < self._new_year:
+            df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
+        else:
+            df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
+
+        time_column = deepcopy(df['Czas'])
+
+        df = df[df.applymap(self._isnumber)]
+
+        df['Czas'] = time_column
+
+        df.to_excel(f'{path_to_output_folder}Sheets/Clean/cleannew_{self.months_converted[month]}.xlsx')
+
+        end = time.perf_counter()
+        print(f'{month} cleaned in {end - start:.2f} s')
+        return 0
+
+    # def _clean_data(self, new_column_names:Dict[int, str]={}, path_to_output_folder='') -> int:
+    #     for month_index, month in enumerate(self.months):
+    #         if self.months.index(month) < self._new_year:
+    #             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
+    #         else:
+    #             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
+
+    #         for _ in df.columns:
+    #             self.errors[month_index].append([])
+
+    #         time_column = deepcopy(df['Czas'])
+
+    #         df = df[df.applymap(self._isnumber)]
+
+    #         df['Czas'] = time_column
+
+    #         df.rename(columns=new_column_names, inplace=True)
+
+    #         df.to_excel(f'{path_to_output_folder}Sheets/Clean/cleannew_{self.months_converted[month_index]}.xlsx')
+
+    #         print(f'{month} cleaned')
+            
+    #     return len(df.columns)
 
     def _clean_data(self, new_column_names:Dict[int, str]={}, path_to_output_folder='') -> int:
-        for month_index, month in enumerate(self.months):
-            if self.months.index(month) < self._new_year:
-                df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
-            else:
-                df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
-
-            for _ in df.columns:
-                self.errors[month_index].append([])
-
-            time_column = deepcopy(df['Czas'])
-
-            df = df[df.applymap(self._isnumber)]
-
-            df['Czas'] = time_column
-
-            df.rename(columns=new_column_names, inplace=True)
-
-            df.to_excel(f'{path_to_output_folder}Sheets/Clean/cleannew_{self.months_converted[month_index]}.xlsx')
-
-            print(f'{month} cleaned')
-            
-        return len(df.columns)
+        with Pool(8) as pool:
+            pool.starmap(self._temp_clean_data, zip(self.months, repeat(path_to_output_folder)))
+        
+        return 0
 
 
     def print_errors(self) -> None:
