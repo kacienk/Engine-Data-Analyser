@@ -1,6 +1,6 @@
 from Imports.cleaner import Cleaner
 from Imports.analyser import Analyser
-from typing import Dict
+from typing import Dict, Optional
 import time
 import pandas as pd
 
@@ -23,14 +23,14 @@ def create_output_df(analysis_results: dict, months: list) -> pd.DataFrame:
     return output_df
 
 
-def cleaning(column_names: Dict[int, str] = {}) -> int:
+def cleaning(column_names: Dict[int, str] = {}) -> Optional[int]:
     path_to_data = f'{path_to_folder}dane_zbiorcze.xlsx'
     months = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień']
 
     data_cleaner = Cleaner(path_to_data, 2021, months)
 
     start = time.perf_counter()
-    num_of_columns = data_cleaner._clean_data(new_column_names=column_names)
+    num_of_columns = data_cleaner.clean_data(new_column_names=column_names)
     end = time.perf_counter()
     duration = end - start
 

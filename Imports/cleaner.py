@@ -1,12 +1,10 @@
-from cmath import nan
 from copy import deepcopy
 from itertools import repeat
-from typing import List, Dict
+from typing import Any, List, Dict, Optional
 import json
 import time
 from multiprocessing import Pool
 import pandas as pd
-import os
 
 
 class Cleaner:
@@ -42,15 +40,19 @@ class Cleaner:
         Methods
         -------
         __init__(path: str, year: int, months: List[str]):
-            constructs a new Cleaner for the specified path, year, and months list
+            initialize a new Cleaner for the specified path, year, and months list
         _convert_months(months: List[str]) -> List[str]:
             returns converts names of months in the given list of months
-        clean_data(path_to_output_folder = '') -> int:
+        _clean_sheet(self, month: str, path_to_output_folder: str) -> int:
+            cleans single sheet applying is_number() map 
+            and returns number of columns in that sheet
+        clean_data(self, new_column_names: Dict[int, str]={}, path_to_output_folder: str='', *, processes: int=6) -> Optional[int]:
             cleans data and saves clean spreadsheets in the specified folder 
-            (default: folder where is the code in which Cleaner was constructed)
-            returns number of columns (useful for Analyser)
-        _clean_data(column_names:Dict[int, string], path_to_output_folder = '') -> int:
-            as above. Prototype function also changing names of columns.
+            implements multiprocessing (default: creates 6 processes)
+            (default: folder where is the code executed)
+            checks if number of columns cleaned is the same in every sheet cleaned
+            if it is returns number of columns (useful for Analyser)
+            else returns None
         print_errors():
             prints errors list 
         errors_to_files(path = ''):
@@ -77,8 +79,8 @@ class Cleaner:
 
 
     @classmethod
-    def _convert_months(cls, months: List[str]) -> dict[str, str]:
-        result_months: dict[str, str] = {}
+    def _convert_months(cls, months: List[str]) -> Dict[str, str]:
+        result_months: Dict[str, str] = {}
 
         with open("./Imports/months.json") as json_file:
             data = json.load(json_file)
@@ -89,15 +91,15 @@ class Cleaner:
 
 
     @staticmethod
-    def return_key_of_value(dict_, value):
+    def return_key_of_value(dict_: dict, value: Any):
         if value in dict_.values():
             reverse_dict = {dvalue: key for key, dvalue in dict_.items()}
             return reverse_dict[value]
         
         return None
 
-
-    def _isnumber(self, x) -> bool:
+    @staticmethod
+    def is_number(x: Any) -> bool:
         try:
             float(x)
             return True
@@ -105,32 +107,7 @@ class Cleaner:
             return False
 
 
-    def clean_data(self,path_to_output_folder = '') -> int:
-        for month_index, month in enumerate(self.months):
-            if self.months.index(month) < self._new_year:
-                df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
-            else:
-                df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
-
-            for _ in df.columns:
-                self.errors[month_index].append([])
-
-            for column in df.columns:
-                if column == 'Czas':
-                    continue
-
-                for index in df.index:
-                    try:
-                        df.loc[index, column] = float(df.loc[index, column])
-                    except:
-                        df.loc[index, column] = nan
-                        self.errors[month_index][column].append(index)
-
-            df.to_excel(f'{path_to_output_folder}Sheets/Clean/clean_{self.months_converted[month]}.xlsx')
-            
-        return len(df.columns)
-
-    def _temp_clean_data(self, month: str, path_to_output_folder: str) -> int:
+    def _clean_sheet(self, month: str, path_to_output_folder: str) -> int:
         start = time.perf_counter()
         if self.months.index(month) < self._new_year:
             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
@@ -138,46 +115,28 @@ class Cleaner:
             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
 
         time_column = deepcopy(df['Czas'])
+        df.drop('Czas')
 
-        df = df[df.applymap(self._isnumber)]
+        df = df[df.applymap(self.is_number)]
 
         df['Czas'] = time_column
 
-        df.to_excel(f'{path_to_output_folder}Sheets/Clean/cleannew_{self.months_converted[month]}.xlsx')
+        df.to_excel(f'{path_to_output_folder}Sheets/Clean/clean_{self.months_converted[month]}.xlsx')
 
         end = time.perf_counter()
         print(f'{month} cleaned in {end - start:.2f} s')
-        return 0
-
-    # def _clean_data(self, new_column_names:Dict[int, str]={}, path_to_output_folder='') -> int:
-    #     for month_index, month in enumerate(self.months):
-    #         if self.months.index(month) < self._new_year:
-    #             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year - 1}', header=0)
-    #         else:
-    #             df = pd.read_excel(self.path, sheet_name=f'{month} {self.year}', header=0)
-
-    #         for _ in df.columns:
-    #             self.errors[month_index].append([])
-
-    #         time_column = deepcopy(df['Czas'])
-
-    #         df = df[df.applymap(self._isnumber)]
-
-    #         df['Czas'] = time_column
-
-    #         df.rename(columns=new_column_names, inplace=True)
-
-    #         df.to_excel(f'{path_to_output_folder}Sheets/Clean/cleannew_{self.months_converted[month_index]}.xlsx')
-
-    #         print(f'{month} cleaned')
-            
-    #     return len(df.columns)
-
-    def _clean_data(self, new_column_names:Dict[int, str]={}, path_to_output_folder='') -> int:
-        with Pool(8) as pool:
-            pool.starmap(self._temp_clean_data, zip(self.months, repeat(path_to_output_folder)))
         
-        return 0
+        return len(df.columns)
+
+
+    def clean_data(self, new_column_names: Dict[int, str]={}, path_to_output_folder: str='', *, processes: int=6) -> Optional[int]:
+        with Pool(processes) as pool:
+            column_numbers = pool.starmap(self._clean_sheet, zip(self.months, repeat(path_to_output_folder)))
+        
+        if column_numbers and all([val == column_numbers[0] for val in column_numbers]):
+                return column_numbers[0]
+
+        return None
 
 
     def print_errors(self) -> None:
